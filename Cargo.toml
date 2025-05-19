@@ -6,7 +6,7 @@ authors = ["Smooth Pudding <smooth.pudding.1017@gmail.com>"]
 
 description = "A Rust library for implementing the Second Best strategy game"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourusername/secondbest"
+repository = "https://github.com/mat-der-D/secondbest"
 readme = "README.md"
 
 keywords = ["game", "boardgame", "secondbest"]
