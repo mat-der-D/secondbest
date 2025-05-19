@@ -1,0 +1,428 @@
+//! Game state management module.
+//!
+//! This module provides the core game logic for the Second Best game, including:
+//! - Game state representation and manipulation
+//! - Turn management
+//! - Action validation and application
+//! - Win condition checking
+//! - Second best declaration handling
+//!
+//! The main type in this module is `Game`, which encapsulates the complete game state
+//! and provides methods to interact with it according to the game rules.
+//!
+//! Please refer to the examples in the `Game` documentation for usage examples.
+
+use crate::board::{Action, Board, Color};
+use crate::error::GameError;
+
+/// Represents the state of a Second Best game.
+///
+/// This struct maintains the complete game state including the board,
+/// player turns, action history, and legal moves.
+///
+/// # Examples
+///
+/// ```
+/// use secondbest::prelude::*;
+///
+/// // Create a new game
+/// let mut game = Game::new();
+///
+/// // Apply some actions
+/// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+/// game.apply_action(Action::Put(Position::S, Color::W)).unwrap();
+///
+/// // Check if second best can be declared
+/// if game.can_declare_second_best() {
+///     game.declare_second_best().unwrap();
+/// }
+///
+/// // Check the game result
+/// match game.result() {
+///     GameResult::Finished { winner } => println!("Winner: {:?}", winner),
+///     GameResult::InProgress => println!("Game still in progress"),
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct Game {
+    board: Board,
+    prev_state: Option<(Board, Action)>,
+    current_player: Color,
+    forbidden_action: Option<Action>,
+    legal_actions: Vec<Action>,
+}
+
+impl std::default::Default for Game {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Game {
+    /// Creates a new game with the default initial state.
+    ///
+    /// The game starts with an empty board and Black as the first player.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// assert!(matches!(game.result(), GameResult::InProgress));
+    /// ```
+    pub fn new() -> Self {
+        let board = Board::default();
+        let first_player = Color::B;
+        Self {
+            board,
+            prev_state: None,
+            current_player: first_player,
+            forbidden_action: None,
+            legal_actions: Self::collect_legal_actions(board, first_player, None),
+        }
+    }
+
+    /// Returns a reference to the current game board.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// let board = game.board();
+    /// assert_eq!(board.count_pieces(Color::B), 0);
+    /// assert_eq!(board.count_pieces(Color::W), 0);
+    /// ```
+    pub fn board(&self) -> &Board {
+        &self.board
+    }
+
+    /// Checks if a given action is legal in the current game state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// // In a new game, placing a black piece at any position is legal
+    /// assert!(game.is_legal_action(Action::Put(Position::N, Color::B)));
+    /// // But placing a white piece is not (it's not white's turn)
+    /// assert!(!game.is_legal_action(Action::Put(Position::N, Color::W)));
+    /// ```
+    pub fn is_legal_action(&self, action: Action) -> bool {
+        self.legal_actions.contains(&action)
+    }
+
+    /// Returns a slice of all legal actions for the current player.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// let legal_actions = game.legal_actions();
+    /// // In a new game, there are 8 legal actions (placing a black piece at any position)
+    /// assert_eq!(legal_actions.len(), 8);
+    /// ```
+    pub fn legal_actions(&self) -> &[Action] {
+        &self.legal_actions
+    }
+
+    /// Applies an action to the game state.
+    ///
+    /// This method updates the board, switches the current player,
+    /// and recalculates legal actions for the next player.
+    ///
+    /// # Errors
+    ///
+    /// Returns `GameError::GameAlreadyOver` if the game has already finished.
+    /// Returns `GameError::IllegalAction` if the action is not legal in the current state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let mut game = Game::new();
+    /// // Apply a legal action
+    /// assert!(game.apply_action(Action::Put(Position::N, Color::B)).is_ok());
+    ///
+    /// // Trying to apply an illegal action (not white's turn)
+    /// assert!(game.apply_action(Action::Put(Position::S, Color::B)).is_err());
+    /// ```
+    pub fn apply_action(&mut self, action: Action) -> Result<(), GameError> {
+        if matches!(self.result(), GameResult::Finished { .. }) {
+            return Err(GameError::GameAlreadyOver);
+        }
+
+        if !self.is_legal_action(action) {
+            return Err(GameError::IllegalAction(action));
+        }
+
+        let prev_board = self.board;
+        self.board.apply_unchecked(action);
+        self.prev_state = match self.forbidden_action {
+            None => Some((prev_board, action)), // 1st time
+            Some(_) => None,                    // 2nd time
+        };
+        let next_player = self.current_player.opposite();
+        self.current_player = next_player;
+        self.forbidden_action = None;
+        self.legal_actions = Self::collect_legal_actions(self.board, next_player, None);
+        Ok(())
+    }
+
+    /// Checks if the current player can declare "second best".
+    ///
+    /// A player can declare "second best" only after their opponent's first move
+    /// in a turn (not after a second move following a previous "second best" declaration).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let mut game = Game::new();
+    /// // Initially, second best cannot be declared
+    /// assert!(!game.can_declare_second_best());
+    ///
+    /// // After an action, the next player can declare second best
+    /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+    /// assert!(game.can_declare_second_best());
+    /// ```
+    pub fn can_declare_second_best(&self) -> bool {
+        self.prev_state.is_some()
+    }
+
+    /// Declares "second best", forcing the opponent to choose a different action.
+    ///
+    /// This method reverts the board to its previous state, switches back to the previous player,
+    /// and marks the previous action as forbidden.
+    ///
+    /// # Errors
+    ///
+    /// Returns `GameError::CannotDeclareSecondBest` if "second best" cannot be declared
+    /// in the current state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let mut game = Game::new();
+    /// // Apply an action
+    /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+    ///
+    /// // Declare second best
+    /// assert!(game.declare_second_best().is_ok());
+    ///
+    /// // The previous action is now forbidden
+    /// assert!(!game.is_legal_action(Action::Put(Position::N, Color::B)));
+    /// ```
+    pub fn declare_second_best(&mut self) -> Result<(), GameError> {
+        let Some((prev_board, prev_action)) = self.prev_state.take() else {
+            return Err(GameError::CannotDeclareSecondBest);
+        };
+
+        self.board = prev_board;
+        let prev_player = self.current_player.opposite();
+        self.current_player = prev_player;
+        self.forbidden_action = Some(prev_action);
+        self.legal_actions =
+            Self::collect_legal_actions(self.board, prev_player, Some(prev_action));
+        Ok(())
+    }
+
+    /// Collects all legal actions for a player in a given board state.
+    ///
+    /// # Arguments
+    /// * `board` - The board state to analyze
+    /// * `player` - The player whose legal actions to collect
+    /// * `forbidden_action` - An optional action that is forbidden (after "second best" declaration)
+    ///
+    /// # Returns
+    /// * A vector of all legal actions for the specified player
+    fn collect_legal_actions(
+        board: Board,
+        player: Color,
+        forbidden_action: Option<Action>,
+    ) -> Vec<Action> {
+        if board.lines_up(player) || board.lines_up(player.opposite()) {
+            return Vec::new();
+        }
+
+        board
+            .legal_action_iter(player)
+            .filter(|&a| Some(a) != forbidden_action)
+            .collect()
+    }
+
+    /// Determines the current result of the game.
+    ///
+    /// The game is considered finished when:
+    /// - A player has achieved a winning condition (3 pieces in a stack or 4 consecutive top pieces)
+    /// - If both players achieve a winning condition simultaneously, the player who made the last move wins
+    /// - If a player has no legal moves available, they lose
+    ///
+    /// Note: Winning conditions are only checked after all "second best" declarations have been used.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let mut game = Game::new();
+    /// // Initially, the game is in progress
+    /// assert!(matches!(game.result(), GameResult::InProgress));
+    ///
+    /// // Create a sequence of moves
+    /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+    /// game.apply_action(Action::Put(Position::S, Color::W)).unwrap();
+    /// // Game is still in progress at this intermediate stage
+    /// assert!(matches!(game.result(), GameResult::InProgress));
+    ///
+    /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+    /// game.apply_action(Action::Put(Position::S, Color::W)).unwrap();
+    /// game.apply_action(Action::Put(Position::E, Color::B)).unwrap();
+    ///
+    /// // White declares "second best"
+    /// game.declare_second_best().unwrap();
+    ///
+    /// // Black makes a winning move by stacking 3 pieces at North
+    /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+    ///
+    /// // Game is finished with Black as the winner
+    /// assert_eq!(game.result().winner(), Some(Color::B));
+    /// ```
+    pub fn result(&self) -> GameResult {
+        if self.can_declare_second_best() {
+            return GameResult::InProgress;
+        }
+
+        let prev_player = self.current_player.opposite();
+        if self.board.lines_up(prev_player) {
+            GameResult::with_winner(prev_player)
+        } else if self.board.lines_up(self.current_player) {
+            GameResult::with_winner(self.current_player)
+        } else if self.legal_actions.is_empty() {
+            GameResult::with_winner(prev_player)
+        } else {
+            GameResult::InProgress
+        }
+    }
+}
+
+impl std::fmt::Display for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Board state:")?;
+        writeln!(f, "{}", self.board)?;
+        writeln!(f, "Current player: {:?}", self.current_player)?;
+        writeln!(f, "{}", self.result())?;
+
+        Ok(())
+    }
+}
+
+/// Represents the result of a game.
+///
+/// This enum has two variants:
+/// - `Finished`: Indicates the game has ended with a winner
+/// - `InProgress`: Indicates the game is still ongoing
+///
+/// # Examples
+///
+/// ```
+/// use secondbest::prelude::*;
+///
+/// let mut game = Game::new();
+/// assert!(matches!(game.result(), GameResult::InProgress));
+///
+/// // After a winning move
+/// // ...
+/// // Check if there's a winner
+/// if let Some(winner) = game.result().winner() {
+///     println!("The winner is: {:?}", winner);
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub enum GameResult {
+    /// Indicates the game has finished with a winner
+    Finished { winner: Color },
+    /// Indicates the game is still in progress
+    InProgress,
+}
+
+impl GameResult {
+    /// Creates a new `GameResult::Finished` with the specified winner.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use secondbest::prelude::*;
+    ///
+    /// let result = GameResult::with_winner(Color::B);
+    /// assert_eq!(result.winner(), Some(Color::B));
+    /// ```
+    fn with_winner(winner: Color) -> Self {
+        GameResult::Finished { winner }
+    }
+
+    /// Returns the winner of the game, if any.
+    ///
+    /// Returns `Some(Color)` if the game is finished, or `None` if the game is still in progress.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use secondbest::prelude::*;
+    ///
+    /// let in_progress = GameResult::InProgress;
+    /// assert_eq!(in_progress.winner(), None);
+    ///
+    /// let finished = GameResult::with_winner(Color::W);
+    /// assert_eq!(finished.winner(), Some(Color::W));
+    /// ```
+    pub fn winner(&self) -> Option<Color> {
+        use GameResult::*;
+        match self {
+            Finished { winner } => Some(*winner),
+            InProgress => None,
+        }
+    }
+}
+
+impl std::fmt::Display for GameResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GameResult::Finished { winner } => write!(f, "Game over - Winner: {}", winner),
+            GameResult::InProgress => write!(f, "Game in progress"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    #[test]
+    fn game_finish_test() {
+        let mut game = Game::new();
+        use Position::*;
+        game.apply_action(Action::Put(N, Color::B)).unwrap();
+        game.apply_action(Action::Put(S, Color::W)).unwrap();
+        game.apply_action(Action::Put(N, Color::B)).unwrap();
+        game.apply_action(Action::Put(S, Color::W)).unwrap();
+        game.apply_action(Action::Put(S, Color::B)).unwrap();
+        assert!(matches!(game.result(), GameResult::InProgress,));
+        game.declare_second_best().unwrap();
+        game.apply_action(Action::Put(N, Color::B)).unwrap();
+        assert!(matches!(
+            game.result(),
+            GameResult::Finished { winner: Color::B }
+        ))
+    }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "secondbest"
+version = "0.1.0"
+edition = "2024"
+authors = ["Smooth Pudding <smooth.pudding.1017@gmail.com>"]
+
+description = "A Rust library for implementing the Second Best strategy game"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/secondbest"
+readme = "README.md"
+
+keywords = ["game", "boardgame", "secondbest"]
+categories = ["games"]
+
+homepage = "https://smooth-pudding.hatenablog.com/"
+
+[dependencies]
+thiserror = "2.0.12"
