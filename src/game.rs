@@ -99,6 +99,20 @@ impl Game {
         &self.board
     }
 
+    /// Returns the current player.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// assert_eq!(game.current_player(), Color::B);
+    /// ```
+    pub fn current_player(&self) -> Color {
+        self.current_player
+    }
+
     /// Checks if a given action is legal in the current game state.
     ///
     /// # Examples
@@ -152,6 +166,8 @@ impl Game {
     /// assert!(game.apply_action(Action::Put(Position::N, Color::B)).is_ok());
     ///
     /// // Trying to apply an illegal action (not white's turn)
+    /// let current_player = game.current_player();
+    /// assert_eq!(current_player, Color::W);
     /// assert!(game.apply_action(Action::Put(Position::S, Color::B)).is_err());
     /// ```
     pub fn apply_action(&mut self, action: Action) -> Result<(), GameError> {
@@ -193,6 +209,7 @@ impl Game {
     /// // After an action, the next player can declare second best
     /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
     /// assert!(game.can_declare_second_best());
+    /// assert_eq!(game.current_player(), Color::W);
     /// ```
     pub fn can_declare_second_best(&self) -> bool {
         self.prev_state.is_some()
@@ -216,10 +233,13 @@ impl Game {
     /// let mut game = Game::new();
     /// // Apply an action
     /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
+    /// assert_eq!(game.current_player(), Color::W);
     ///
     /// // Declare second best
     /// assert!(game.declare_second_best().is_ok());
     ///
+    /// // The turn goes back to the previous player
+    /// assert_eq!(game.current_player(), Color::B);
     /// // The previous action is now forbidden
     /// assert!(!game.is_legal_action(Action::Put(Position::N, Color::B)));
     /// ```
@@ -290,9 +310,11 @@ impl Game {
     /// game.apply_action(Action::Put(Position::E, Color::B)).unwrap();
     ///
     /// // White declares "second best"
+    /// assert_eq!(game.current_player(), Color::W);
     /// game.declare_second_best().unwrap();
     ///
     /// // Black makes a winning move by stacking 3 pieces at North
+    /// assert_eq!(game.current_player(), Color::B);
     /// game.apply_action(Action::Put(Position::N, Color::B)).unwrap();
     ///
     /// // Game is finished with Black as the winner
