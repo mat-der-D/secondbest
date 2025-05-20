@@ -275,8 +275,17 @@ impl Game {
             return Vec::new();
         }
 
+        let num_pieces = board.count_pieces(player);
+
         board
             .legal_action_iter(player)
+            .filter(|&a| {
+                if num_pieces < 8 {
+                    matches!(a, Action::Put(..))
+                } else {
+                    matches!(a, Action::Move(..))
+                }
+            })
             .filter(|&a| Some(a) != forbidden_action)
             .collect()
     }
