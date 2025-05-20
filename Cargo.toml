@@ -1,6 +1,6 @@
 [package]
 name = "secondbest"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 authors = ["Smooth Pudding <smooth.pudding.1017@gmail.com>"]
 
