@@ -439,6 +439,79 @@ impl std::fmt::Display for GameResult {
 mod tests {
     use crate::prelude::*;
 
+    /// 単純な疑似乱数生成関数
+    fn next_rand(state: usize) -> usize {
+        state.wrapping_mul(6364136223846793005).wrapping_add(1)
+    }
+
+    #[test]
+    fn test_random_plays() {
+        const NUM_GAMES: usize = 100;
+        let mut num = 12345;
+        for n in 1..=NUM_GAMES {
+            num = test_a_game(num);
+            println!("PASSED: {}/{}", n, NUM_GAMES);
+        }
+    }
+
+    fn test_a_game(init: usize) -> usize {
+        let mut game = Game::new();
+        let mut num = init;
+        loop {
+            if game.can_declare_second_best() {
+                assert!(game.declare_second_best().is_ok());
+                continue;
+            }
+
+            let legal_actions = game.legal_actions();
+            if legal_actions.is_empty() {
+                assert!(game.result().winner().is_some());
+                break;
+            }
+            let action = legal_actions[num % legal_actions.len()];
+            num = next_rand(num);
+            assert!(game.is_legal_action(action));
+            assert!(game.apply_action(action).is_ok());
+
+            test_game(&game);
+            if game.result().winner().is_some() {
+                break;
+            }
+        }
+        num
+    }
+
+    fn test_game(game: &Game) {
+        // いろいろな観点でテストする
+        test_action_kind(game);
+        test_finish(game);
+    }
+
+    fn test_action_kind(game: &Game) {
+        let player = game.current_player();
+        let num_pieces = game.board().count_pieces(player);
+        let legal_actions = game.legal_actions();
+        if num_pieces < 8 {
+            assert!(legal_actions.iter().all(|&a| matches!(a, Action::Put(..))));
+        } else {
+            assert!(legal_actions.iter().all(|&a| matches!(a, Action::Move(..))));
+        }
+    }
+
+    fn test_finish(game: &Game) {
+        if game.can_declare_second_best() {
+            return;
+        }
+
+        if game.result().winner().is_none() {
+            return;
+        }
+
+        let legal_actions = game.legal_actions();
+        let lines_up = game.board().lines_up(game.current_player());
+        assert!(legal_actions.is_empty() || lines_up);
+    }
+
     #[test]
     fn game_finish_test() {
         let mut game = Game::new();
