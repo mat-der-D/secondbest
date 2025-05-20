@@ -449,17 +449,21 @@ mod tests {
         const NUM_GAMES: usize = 100;
         let mut num = 12345;
         for n in 1..=NUM_GAMES {
-            num = test_a_game(num);
+            num = test_in_one_play(num);
             println!("PASSED: {}/{}", n, NUM_GAMES);
         }
     }
 
-    fn test_a_game(init: usize) -> usize {
+    fn test_in_one_play(init: usize) -> usize {
         let mut game = Game::new();
         let mut num = init;
+        let mut prev_action = None;
         loop {
+            num = next_rand(num);
+
             if game.can_declare_second_best() {
                 assert!(game.declare_second_best().is_ok());
+                assert!(!game.is_legal_action(prev_action.unwrap()));
                 continue;
             }
 
@@ -468,10 +472,14 @@ mod tests {
                 assert!(game.result().winner().is_some());
                 break;
             }
+
             let action = legal_actions[num % legal_actions.len()];
-            num = next_rand(num);
+            prev_action = Some(action);
             assert!(game.is_legal_action(action));
+
+            let prev_player = game.current_player();
             assert!(game.apply_action(action).is_ok());
+            assert_eq!(prev_player.opposite(), game.current_player());
 
             test_game(&game);
             if game.result().winner().is_some() {
@@ -482,9 +490,15 @@ mod tests {
     }
 
     fn test_game(game: &Game) {
-        // いろいろな観点でテストする
+        test_piece_count(game);
         test_action_kind(game);
         test_finish(game);
+    }
+
+    fn test_piece_count(game: &Game) {
+        let num_pieces_b = game.board().count_pieces(Color::B);
+        let num_pieces_w = game.board().count_pieces(Color::W);
+        assert!(num_pieces_b == num_pieces_w || num_pieces_b == num_pieces_w + 1);
     }
 
     fn test_action_kind(game: &Game) {
@@ -513,7 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn game_finish_test() {
+    fn test_game_finish() {
         let mut game = Game::new();
         use Position::*;
         game.apply_action(Action::Put(N, Color::B)).unwrap();
