@@ -561,9 +561,9 @@ mod tests {
         }
     }
 
-    fn test_with_random_games<F>(mut test_fn: F) -> usize
+    fn test_with_random_games<F>(test_fn: F) -> usize
     where
-        F: FnMut(&Game, Option<&Action>),
+        F: Fn(&Game, Option<&Action>),
     {
         const NUM_GAMES: usize = 5;
         let mut seed = 12345;
@@ -622,11 +622,18 @@ mod tests {
         });
     }
 
-    fn test_is_legal_action_impl(game: &Game) {
-        if game.is_finished() {
-            return;
-        }
+    #[test]
+    fn test_is_legal_action() {
+        test_with_random_games(|game, _| {
+            if game.is_finished() {
+                return;
+            }
+            test_is_legal_action_for_put(game);
+            test_is_legal_action_for_move(game);
+        });
+    }
 
+    fn test_is_legal_action_for_put(game: &Game) {
         let lines_up = game.board().lines_up(Color::B) || game.board().lines_up(Color::W);
         let player = game.current_player();
         let num_pieces = game.board().count_pieces(player);
@@ -657,6 +664,12 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn test_is_legal_action_for_move(game: &Game) {
+        let lines_up = game.board().lines_up(Color::B) || game.board().lines_up(Color::W);
+        let player = game.current_player();
+        let num_pieces = game.board().count_pieces(player);
 
         // test move
         for from in Position::iter() {
@@ -701,40 +714,29 @@ mod tests {
     }
 
     #[test]
-    fn test_is_legal_action() {
-        test_with_random_games(|game, _| {
-            test_is_legal_action_impl(game);
-        });
-    }
-
-    fn test_legal_actions_impl(game: &Game) {
-        // test put
-        for pos in Position::iter() {
-            for color in [Color::B, Color::W] {
-                let action = Action::Put(pos, color);
-                assert_eq!(
-                    game.legal_actions().contains(&action),
-                    game.is_legal_action(action)
-                );
-            }
-        }
-
-        // test move
-        for from in Position::iter() {
-            for to in Position::iter() {
-                let action = Action::Move(from, to);
-                assert_eq!(
-                    game.legal_actions().contains(&action),
-                    game.is_legal_action(action)
-                );
-            }
-        }
-    }
-
-    #[test]
     fn test_legal_actions() {
         test_with_random_games(|game, _| {
-            test_legal_actions_impl(game);
+            // test put
+            for pos in Position::iter() {
+                for color in [Color::B, Color::W] {
+                    let action = Action::Put(pos, color);
+                    assert_eq!(
+                        game.legal_actions().contains(&action),
+                        game.is_legal_action(action)
+                    );
+                }
+            }
+
+            // test move
+            for from in Position::iter() {
+                for to in Position::iter() {
+                    let action = Action::Move(from, to);
+                    assert_eq!(
+                        game.legal_actions().contains(&action),
+                        game.is_legal_action(action)
+                    );
+                }
+            }
         });
     }
 
