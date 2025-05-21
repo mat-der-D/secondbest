@@ -345,6 +345,48 @@ impl Game {
             GameResult::InProgress
         }
     }
+
+    /// Checks if the game has finished.
+    ///
+    /// This is a convenience method that checks the result of `result()`.
+    /// It returns the same result as calling `game.result().is_finished()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// assert!(!game.is_finished());
+    ///
+    /// // After a winning move, the game would be finished
+    /// // let mut game = create_winning_game();
+    /// // assert!(game.is_finished());
+    /// ```
+    pub fn is_finished(&self) -> bool {
+        self.result().is_finished()
+    }
+
+    /// Checks if the game is still in progress.
+    ///
+    /// This is a convenience method that checks the result of `result()`.
+    /// It returns the same result as calling `game.result().is_in_progress()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let game = Game::new();
+    /// assert!(game.is_in_progress());
+    ///
+    /// // After a winning move, the game would no longer be in progress
+    /// // let mut game = create_winning_game();
+    /// // assert!(!game.is_in_progress());
+    /// ```
+    pub fn is_in_progress(&self) -> bool {
+        self.result().is_in_progress()
+    }
 }
 
 impl std::fmt::Display for Game {
@@ -423,6 +465,40 @@ impl GameResult {
             Finished { winner } => Some(*winner),
             InProgress => None,
         }
+    }
+
+    /// Returns `true` if the game is finished.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let in_progress = GameResult::InProgress;
+    /// assert_eq!(in_progress.is_finished(), false);
+    ///
+    /// let finished = GameResult::Finished { winner: Color::W };
+    /// assert_eq!(finished.is_finished(), true);
+    /// ```
+    pub fn is_finished(&self) -> bool {
+        matches!(self, GameResult::Finished { .. })
+    }
+
+    /// Returns `true` if the game is still in progress.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::prelude::*;
+    ///
+    /// let in_progress = GameResult::InProgress;
+    /// assert_eq!(in_progress.is_in_progress(), true);
+    ///
+    /// let finished = GameResult::Finished { winner: Color::W };
+    /// assert_eq!(finished.is_in_progress(), false);
+    /// ```
+    pub fn is_in_progress(&self) -> bool {
+        matches!(self, GameResult::InProgress)
     }
 }
 
@@ -763,6 +839,32 @@ mod tests {
                         }
                     }
                 }
+            }
+            seed = generator.num();
+        }
+    }
+
+    #[test]
+    fn test_is_finished() {
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, _) in &mut generator {
+                assert_eq!(game.result().is_finished(), game.is_finished())
+            }
+            seed = generator.num();
+        }
+    }
+
+    #[test]
+    fn test_is_in_progress() {
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, _) in &mut generator {
+                assert_eq!(game.result().is_in_progress(), game.is_in_progress())
             }
             seed = generator.num();
         }
