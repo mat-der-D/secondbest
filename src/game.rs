@@ -379,7 +379,7 @@ impl std::fmt::Display for Game {
 ///     println!("The winner is: {:?}", winner);
 /// }
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameResult {
     /// Indicates the game has finished with a winner
     Finished { winner: Color },
@@ -664,21 +664,107 @@ mod tests {
 
     #[test]
     fn test_apply_action() {
-        // TODO: Prepare test case
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, _) in &mut generator {
+                // test put
+                for pos in Position::iter() {
+                    for color in [Color::B, Color::W] {
+                        let action = Action::Put(pos, color);
+                        let mut game = game.clone();
+                        assert_eq!(
+                            game.is_legal_action(action),
+                            game.apply_action(action).is_ok()
+                        );
+                    }
+                }
+
+                // test move
+                for from in Position::iter() {
+                    for to in Position::iter() {
+                        let action = Action::Move(from, to);
+                        let mut game = game.clone();
+                        assert_eq!(
+                            game.is_legal_action(action),
+                            game.apply_action(action).is_ok()
+                        );
+                    }
+                }
+            }
+            seed = generator.num();
+        }
     }
 
     #[test]
     fn test_can_declare_second_best() {
-        // TODO: Prepare test case
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, prev_action) in &mut generator {
+                for &action in game.legal_actions() {
+                    let mut game = game.clone();
+                    assert!(game.apply_action(action).is_ok());
+                    assert_eq!(game.can_declare_second_best(), prev_action.is_some());
+                }
+            }
+            seed = generator.num();
+        }
     }
 
     #[test]
     fn test_declare_second_best() {
-        // TODO: Prepare test case
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, _) in &mut generator {
+                let prev_board = game.board();
+                for &action in game.legal_actions() {
+                    let mut game = game.clone();
+                    assert!(game.apply_action(action).is_ok());
+                    let can_declare = game.can_declare_second_best();
+                    assert_eq!(game.declare_second_best().is_ok(), can_declare);
+                    if can_declare {
+                        assert_eq!(game.board(), prev_board);
+                    }
+                }
+            }
+            seed = generator.num();
+        }
     }
 
     #[test]
     fn test_result() {
-        // TODO: Prepare test case
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, _) in &mut generator {
+                let result = game.result();
+                if game.can_declare_second_best() {
+                    assert!(matches!(result, GameResult::InProgress));
+                    continue;
+                }
+                let player = game.current_player();
+                let opponent = player.opposite();
+                let board = game.board();
+                match (board.lines_up(player), board.lines_up(player.opposite())) {
+                    (true, false) => assert_eq!(result, GameResult::Finished { winner: player }),
+                    (false, true) => assert_eq!(result, GameResult::Finished { winner: opponent }),
+                    (true, true) => assert_eq!(result, GameResult::Finished { winner: opponent }),
+                    (false, false) => {
+                        if game.legal_actions().is_empty() {
+                            assert_eq!(result, GameResult::Finished { winner: opponent })
+                        } else {
+                            assert_eq!(result, GameResult::InProgress)
+                        }
+                    }
+                }
+            }
+            seed = generator.num();
+        }
     }
 }
