@@ -541,7 +541,7 @@ mod tests {
                 state.wrapping_mul(6364136223846793005).wrapping_add(1)
             }
 
-            if self.game.result().winner().is_some() {
+            if self.game.is_finished() {
                 return None;
             }
 
@@ -594,7 +594,7 @@ mod tests {
         for _ in 0..NUM_GAMES {
             let mut generator = RandomGameGenerator::new(seed);
             for (game, _) in &mut generator {
-                if game.result().winner().is_some() {
+                if game.is_finished() {
                     continue;
                 }
 
@@ -624,7 +624,7 @@ mod tests {
     }
 
     fn test_is_legal_action_impl(game: &Game) {
-        if game.result().winner().is_some() {
+        if game.is_finished() {
             return;
         }
 
