@@ -561,6 +561,24 @@ mod tests {
         }
     }
 
+    fn test_with_random_games<F>(mut test_fn: F) -> usize
+    where
+        F: FnMut(&Game, Option<&Action>),
+    {
+        const NUM_GAMES: usize = 5;
+        let mut seed = 12345;
+
+        for _ in 0..NUM_GAMES {
+            let mut generator = RandomGameGenerator::new(seed);
+            for (game, action) in &mut generator {
+                test_fn(&game, action.as_ref());
+            }
+            seed = generator.num();
+        }
+
+        seed
+    }
+
     #[test]
     fn test_new() {
         let game = Game::new();
@@ -589,38 +607,19 @@ mod tests {
 
     #[test]
     fn test_current_player() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                if game.is_finished() {
-                    continue;
-                }
-
-                let player = game.current_player();
-                for &action in game.legal_actions() {
-                    let mut game = game.clone();
-                    assert!(game.apply_action(action).is_ok());
-                    let next_player = game.current_player();
-                    assert_eq!(next_player, player.opposite());
-                }
+        test_with_random_games(|game, _| {
+            if game.is_finished() {
+                return;
             }
-            seed = generator.num();
-        }
-    }
 
-    #[test]
-    fn test_is_legal_action() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                test_is_legal_action_impl(&game);
+            let player = game.current_player();
+            for &action in game.legal_actions() {
+                let mut game_clone = game.clone();
+                assert!(game_clone.apply_action(action).is_ok());
+                let next_player = game_clone.current_player();
+                assert_eq!(next_player, player.opposite());
             }
-            seed = generator.num();
-        }
+        });
     }
 
     fn test_is_legal_action_impl(game: &Game) {
@@ -702,16 +701,10 @@ mod tests {
     }
 
     #[test]
-    fn test_legal_actions() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                test_legal_actions_impl(&game);
-            }
-            seed = generator.num();
-        }
+    fn test_is_legal_action() {
+        test_with_random_games(|game, _| {
+            test_is_legal_action_impl(game);
+        });
     }
 
     fn test_legal_actions_impl(game: &Game) {
@@ -739,134 +732,105 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_action() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                // test put
-                for pos in Position::iter() {
-                    for color in [Color::B, Color::W] {
-                        let action = Action::Put(pos, color);
-                        let mut game = game.clone();
-                        assert_eq!(
-                            game.is_legal_action(action),
-                            game.apply_action(action).is_ok()
-                        );
-                    }
-                }
+    fn test_legal_actions() {
+        test_with_random_games(|game, _| {
+            test_legal_actions_impl(game);
+        });
+    }
 
-                // test move
-                for from in Position::iter() {
-                    for to in Position::iter() {
-                        let action = Action::Move(from, to);
-                        let mut game = game.clone();
-                        assert_eq!(
-                            game.is_legal_action(action),
-                            game.apply_action(action).is_ok()
-                        );
-                    }
+    #[test]
+    fn test_apply_action() {
+        test_with_random_games(|game, _| {
+            // test put
+            for pos in Position::iter() {
+                for color in [Color::B, Color::W] {
+                    let action = Action::Put(pos, color);
+                    let mut game_clone = game.clone();
+                    assert_eq!(
+                        game.is_legal_action(action),
+                        game_clone.apply_action(action).is_ok()
+                    );
                 }
             }
-            seed = generator.num();
-        }
+
+            // test move
+            for from in Position::iter() {
+                for to in Position::iter() {
+                    let action = Action::Move(from, to);
+                    let mut game_clone = game.clone();
+                    assert_eq!(
+                        game.is_legal_action(action),
+                        game_clone.apply_action(action).is_ok()
+                    );
+                }
+            }
+        });
     }
 
     #[test]
     fn test_can_declare_second_best() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, prev_action) in &mut generator {
-                for &action in game.legal_actions() {
-                    let mut game = game.clone();
-                    assert!(game.apply_action(action).is_ok());
-                    assert_eq!(game.can_declare_second_best(), prev_action.is_some());
-                }
+        test_with_random_games(|game, prev_action| {
+            for &action in game.legal_actions() {
+                let mut game_clone = game.clone();
+                assert!(game_clone.apply_action(action).is_ok());
+                assert_eq!(game_clone.can_declare_second_best(), prev_action.is_some());
             }
-            seed = generator.num();
-        }
+        });
     }
 
     #[test]
     fn test_declare_second_best() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                let prev_board = game.board();
-                for &action in game.legal_actions() {
-                    let mut game = game.clone();
-                    assert!(game.apply_action(action).is_ok());
-                    let can_declare = game.can_declare_second_best();
-                    assert_eq!(game.declare_second_best().is_ok(), can_declare);
-                    if can_declare {
-                        assert_eq!(game.board(), prev_board);
-                    }
+        test_with_random_games(|game, _| {
+            let prev_board = game.board();
+            for &action in game.legal_actions() {
+                let mut game_clone = game.clone();
+                assert!(game_clone.apply_action(action).is_ok());
+                let can_declare = game_clone.can_declare_second_best();
+                assert_eq!(game_clone.declare_second_best().is_ok(), can_declare);
+                if can_declare {
+                    assert_eq!(game_clone.board(), prev_board);
                 }
             }
-            seed = generator.num();
-        }
+        });
     }
 
     #[test]
     fn test_result() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                let result = game.result();
-                if game.can_declare_second_best() {
-                    assert!(matches!(result, GameResult::InProgress));
-                    continue;
-                }
-                let player = game.current_player();
-                let opponent = player.opposite();
-                let board = game.board();
-                match (board.lines_up(player), board.lines_up(player.opposite())) {
-                    (true, false) => assert_eq!(result, GameResult::Finished { winner: player }),
-                    (false, true) => assert_eq!(result, GameResult::Finished { winner: opponent }),
-                    (true, true) => assert_eq!(result, GameResult::Finished { winner: opponent }),
-                    (false, false) => {
-                        if game.legal_actions().is_empty() {
-                            assert_eq!(result, GameResult::Finished { winner: opponent })
-                        } else {
-                            assert_eq!(result, GameResult::InProgress)
-                        }
+        test_with_random_games(|game, _| {
+            let result = game.result();
+            if game.can_declare_second_best() {
+                assert!(matches!(result, GameResult::InProgress));
+                return;
+            }
+            let player = game.current_player();
+            let opponent = player.opposite();
+            let board = game.board();
+            match (board.lines_up(player), board.lines_up(player.opposite())) {
+                (true, false) => assert_eq!(result, GameResult::Finished { winner: player }),
+                (false, true) => assert_eq!(result, GameResult::Finished { winner: opponent }),
+                (true, true) => assert_eq!(result, GameResult::Finished { winner: opponent }),
+                (false, false) => {
+                    if game.legal_actions().is_empty() {
+                        assert_eq!(result, GameResult::Finished { winner: opponent })
+                    } else {
+                        assert_eq!(result, GameResult::InProgress)
                     }
                 }
             }
-            seed = generator.num();
-        }
+        });
     }
 
     #[test]
     fn test_is_finished() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                assert_eq!(game.result().is_finished(), game.is_finished())
-            }
-            seed = generator.num();
-        }
+        test_with_random_games(|game, _| {
+            assert_eq!(game.result().is_finished(), game.is_finished())
+        });
     }
 
     #[test]
     fn test_is_in_progress() {
-        const NUM_GAMES: usize = 5;
-        let mut seed = 12345;
-        for _ in 0..NUM_GAMES {
-            let mut generator = RandomGameGenerator::new(seed);
-            for (game, _) in &mut generator {
-                assert_eq!(game.result().is_in_progress(), game.is_in_progress())
-            }
-            seed = generator.num();
-        }
+        test_with_random_games(|game, _| {
+            assert_eq!(game.result().is_in_progress(), game.is_in_progress())
+        });
     }
 }
