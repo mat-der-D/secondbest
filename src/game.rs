@@ -408,13 +408,13 @@ impl GameResult {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// use secondbest::prelude::*;
     ///
     /// let in_progress = GameResult::InProgress;
     /// assert_eq!(in_progress.winner(), None);
     ///
-    /// let finished = GameResult::with_winner(Color::W);
+    /// let finished = GameResult::Finished { winner: Color::W };
     /// assert_eq!(finished.winner(), Some(Color::W));
     /// ```
     pub fn winner(&self) -> Option<Color> {
