@@ -12,24 +12,41 @@
 use crate::board::bitboard::BitBoard;
 use crate::board::types::{Action, Position};
 
-/// Iterator for all legal actions (both puts and moves) in the current board state.
+/// Iterator for all legal actions (puts or moves) in the current board state.
 #[derive(Debug)]
 pub struct LegalActionIter {
-    iter: std::iter::Chain<LegalPutIter, LegalMoveIter>,
+    adapter: LegalActionIterAdapter,
 }
 
 impl LegalActionIter {
-    pub(crate) fn new(put_iter: LegalPutIter, move_iter: LegalMoveIter) -> Self {
+    pub(crate) fn with_put_iter(iter: LegalPutIter) -> Self {
         Self {
-            iter: put_iter.chain(move_iter),
+            adapter: LegalActionIterAdapter::LegalPutIter(iter),
         }
     }
+
+    pub(crate) fn with_move_iter(iter: LegalMoveIter) -> Self {
+        Self {
+            adapter: LegalActionIterAdapter::LegalMoveIter(iter),
+        }
+    }
+}
+
+/// Adapter enum to handle different types of legal action iterators.
+#[derive(Debug)]
+enum LegalActionIterAdapter {
+    LegalPutIter(LegalPutIter),
+    LegalMoveIter(LegalMoveIter),
 }
 
 impl Iterator for LegalActionIter {
     type Item = Action;
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        use LegalActionIterAdapter::*;
+        match &mut self.adapter {
+            LegalPutIter(iter) => iter.next(),
+            LegalMoveIter(iter) => iter.next(),
+        }
     }
 }
 

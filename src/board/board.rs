@@ -438,7 +438,7 @@ impl Board {
     /// * `color` - The color of the player
     ///
     /// # Returns
-    /// * An iterator that yields all legal actions (puts and moves)
+    /// * An iterator that yields all legal actions (puts or moves)
     ///
     /// # Examples
     ///
@@ -460,9 +460,13 @@ impl Board {
     /// }
     /// ```
     pub fn legal_action_iter(&self, color: Color) -> LegalActionIter {
-        let legal_put_iter = LegalPutIter::new(self.inner.legal_put_iter(color.into()));
-        let legal_move_iter = LegalMoveIter::new(self.inner.legal_move_iter(color.into()));
-        LegalActionIter::new(legal_put_iter, legal_move_iter)
+        if self.count_pieces(color) < 8 {
+            let bit_iter = self.inner.legal_put_iter(color.into());
+            LegalActionIter::with_put_iter(LegalPutIter::new(bit_iter))
+        } else {
+            let bit_iter = self.inner.legal_move_iter(color.into());
+            LegalActionIter::with_move_iter(LegalMoveIter::new(bit_iter))
+        }
     }
 }
 
