@@ -8,13 +8,29 @@
 //! a unique mechanic where a player can declare "second best" after their opponent's move, forcing the opponent
 //! to choose a different action.
 //!
+//! ## Game Setup
+//!
+//! - The game starts with an empty board of 8 positions arranged in a circle (N, NE, E, SE, S, SW, W, NW)
+//! - Each position can hold up to 3 stacked pieces
+//! - Black plays first, then players alternate turns
+//! - On each turn, a player must either place a new piece or move an existing one of their color
+//!
+//! ## "Second Best" Mechanic
+//!
+//! The unique feature of this game is the "second best" declaration:
+//!
+//! - After an opponent makes their move (their first action in the turn), a player can declare "second best"
+//! - This forces the opponent to choose a different action (their "second best" choice)
+//! - A player can only declare "second best" after the opponent's first action in a turn, not after their second action
+//! - The "second best" declaration can only be used once per turn
+//!
 //! ## Winning Conditions
 //!
 //! A player wins when they achieve one of the following:
-//! - Stack 3 of their pieces in a single position (vertical line-up)
-//! - Have their pieces at the top of 4 consecutive positions (horizontal line-up)
-//! - If both players achieve a winning condition simultaneously, the player who made the last move wins
-//! - If a player has no legal moves available, they lose
+//! - **Vertical Line-up**: Stack 3 of their pieces in a single position
+//! - **Horizontal Line-up**: Have their pieces at the top of 4 consecutive positions
+//! - **Priority Win**: If both players achieve a winning condition simultaneously, the player who made the last move wins
+//! - **No Moves**: If a player has no legal moves available, they lose
 //!
 //! Note: Winning conditions are only checked after all "second best" declarations have been used.
 //!
