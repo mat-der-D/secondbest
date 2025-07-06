@@ -24,4 +24,8 @@ Cargo.lock
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db 
+Thumbs.db
+
+# Claude Code files
+CLAUDE.md
+.claude
