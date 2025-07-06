@@ -68,7 +68,7 @@ use crate::error::BitBoardError;
 /// - `bits & 0x8888_8888`: Check the most significant bit at each position (check for black pieces at the top)
 /// - `bits & 0xEEEE_EEEE`: Check the top 3 bits at each position (detect 0b1110 pattern)
 /// - `(bits << 3) & 0x8888_8888`: Check for available positions (check if top bit at each position is empty)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BitBoard {
     bits: u32,
 }
