@@ -66,6 +66,26 @@ impl Board {
     pub fn inner_mut(&mut self) -> &mut BitBoard {
         &mut self.inner
     }
+
+    /// Creates a new Board from an inner BitBoard.
+    ///
+    /// # Arguments
+    /// * `inner` - The BitBoard to use as the inner representation
+    ///
+    /// # Returns
+    /// * A new Board instance with the specified inner BitBoard
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use secondbest::board::{Board, BitBoard};
+    ///
+    /// let bit_board = BitBoard::default();
+    /// let board = Board::from_inner(bit_board);
+    /// ```
+    pub fn from_inner(inner: BitBoard) -> Self {
+        Self { inner }
+    }
 }
 
 impl Board {
@@ -752,5 +772,20 @@ mod test {
         board.move_unchecked(Position::N, Position::E);
         assert!(board.get_pieces_at(Position::N).is_empty());
         assert_eq!(board.get_pieces_at(Position::E), vec![Color::B]);
+    }
+
+    #[test]
+    fn test_from_inner() {
+        // Test creating Board from default BitBoard
+        let bit_board = BitBoard::default();
+        let board = Board::from_inner(bit_board);
+        assert!(board.is_valid(), "Board created from default BitBoard should be valid");
+        assert_eq!(board.count_pieces(Color::B), 0, "Board should have no black pieces");
+        assert_eq!(board.count_pieces(Color::W), 0, "Board should have no white pieces");
+
+        // Test creating Board from custom BitBoard
+        let custom_bit_board = BitBoard::new(0x123); // Some valid pattern
+        let board = Board::from_inner(custom_bit_board);
+        assert_eq!(board.inner(), &custom_bit_board, "Inner BitBoard should match");
     }
 }
